@@ -1,0 +1,453 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Image Compression Preview</title>
+    <style>
+        :root {
+            --primary: #4F46E5;
+            --primary-dark: #4338CA;
+            --background: #F9FAFB;
+            --card-bg: #FFFFFF;
+            --text: #1F2937;
+            --text-secondary: #6B7280;
+            --border: #E5E7EB;
+            --shadow: rgba(0, 0, 0, 0.1);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background-color: var(--background);
+            color: var(--text);
+            line-height: 1.5;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 3rem;
+        }
+
+        .header h1 {
+            font-size: 2.5rem;
+            font-weight: 700;
+            margin-bottom: 1rem;
+            background: linear-gradient(to right, var(--primary), var(--primary-dark));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .header p {
+            color: var(--text-secondary);
+            font-size: 1.1rem;
+        }
+
+        .upload-container {
+            display: flex;
+            justify-content: center;
+            margin-bottom: 3rem;
+        }
+
+        .upload-box {
+            background: var(--card-bg);
+            border: 2px dashed var(--border);
+            border-radius: 1rem;
+            padding: 2rem;
+            text-align: center;
+            width: 100%;
+            max-width: 500px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .upload-box:hover {
+            border-color: var(--primary);
+            background: #F8FAFC;
+        }
+
+        .upload-box.drag-over {
+            border-color: var(--primary);
+            background: #EEF2FF;
+        }
+
+        .file-input {
+            display: none;
+        }
+
+        .image-preview {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 2rem;
+            margin-top: 2rem;
+        }
+
+        .card {
+            background: var(--card-bg);
+            border-radius: 1rem;
+            box-shadow: 0 4px 6px var(--shadow);
+            overflow: hidden;
+            transition: transform 0.3s ease;
+        }
+
+        .card:hover {
+            transform: translateY(-5px);
+        }
+
+        .card-header {
+            padding: 1rem;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .card-content {
+            padding: 1rem;
+            min-height: 200px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .card img {
+            max-width: 100%;
+            height: auto;
+            border-radius: 0.5rem;
+            margin-bottom: 1rem;
+        }
+
+        .card-footer {
+            padding: 1rem;
+            background: #F8FAFC;
+            border-top: 1px solid var(--border);
+        }
+
+        .error-modal {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: white;
+            padding: 2rem;
+            border-radius: 1rem;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+            max-width: 90%;
+            width: 450px;
+            z-index: 1000;
+            text-align: center;
+        }
+
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.5);
+            backdrop-filter: blur(4px);
+            z-index: 999;
+        }
+
+        .button {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0.75rem 1.5rem;
+            background-color: var(--primary);
+            color: white;
+            border: none;
+            border-radius: 0.5rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-decoration: none;
+            width: 100%;
+        }
+
+        .button:hover {
+            background-color: var(--primary-dark);
+        }
+
+        .loader {
+            width: 48px;
+            height: 48px;
+            border: 3px solid #EEF2FF;
+            border-bottom-color: var(--primary);
+            border-radius: 50%;
+            display: inline-block;
+            animation: rotation 1s linear infinite;
+            margin: auto;
+        }
+
+        .loading-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 200px;
+            gap: 1rem;
+        }
+
+        .loading-text {
+            color: var(--text-secondary);
+        }
+
+        @keyframes rotation {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .stats {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
+            color: var(--text-secondary);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Image Compression Tool</h1>
+            <p>Optimize your images with intelligent compression</p>
+        </div>
+
+        <div class="upload-container">
+            <div class="upload-box" id="uploadBox">
+                <div class="upload-icon">📁</div>
+                <p>Drag and drop your image here or click to browse</p>
+                <p class="loading-text">Minimum size required: 2MB</p>
+                <input type="file" id="imageInput" accept="image/*" class="file-input">
+            </div>
+        </div>
+
+        <div id="preview" class="image-preview"></div>
+    </div>
+
+    <script>
+        const MIN_FILE_SIZE = 2 * 1024 * 1024; // 2MB in bytes
+        const imageInput = document.getElementById('imageInput');
+        const uploadBox = document.getElementById('uploadBox');
+        const previewContainer = document.getElementById('preview');
+        let originalImage = null;
+        let originalSize = 0;
+
+        function showError(message) {
+            const overlay = document.createElement('div');
+            overlay.className = 'modal-overlay';
+            
+            const modal = document.createElement('div');
+            modal.className = 'error-modal';
+            modal.innerHTML = `
+                <h3 style="color: #DC2626; margin-bottom: 1rem;">Image Too Small</h3>
+                <p>${message}</p>
+                <button class="button" onclick="closeError()">Got it</button>
+            `;
+            
+            document.body.appendChild(overlay);
+            document.body.appendChild(modal);
+        }
+
+        function closeError() {
+            const modal = document.querySelector('.error-modal');
+            const overlay = document.querySelector('.modal-overlay');
+            if (modal) modal.remove();
+            if (overlay) overlay.remove();
+        }
+
+        function formatSize(bytes) {
+            return (bytes / (1024 * 1024)).toFixed(2) + ' MB';
+        }
+
+        function createLoadingCard(title, id) {
+            const card = document.createElement("div");
+            card.className = "card";
+            card.id = id;
+            card.innerHTML = `
+                <div class="card-header">
+                    <h3>${title}</h3>
+                </div>
+                <div class="card-content">
+                    <div class="loading-container">
+                        <div class="loader"></div>
+                        <div class="loading-text">Optimizing image...</div>
+                    </div>
+                </div>
+            `;
+            previewContainer.appendChild(card);
+        }
+
+        function createResultCard(title, imageSrc, size, id, downloadable = false) {
+            const savings = originalSize - size;
+            const savingsPercent = ((savings / originalSize) * 100).toFixed(1);
+            
+            const card = document.createElement("div");
+            card.className = "card";
+            card.innerHTML = `
+                <div class="card-header">
+                    <h3>${title}</h3>
+                </div>
+                <div class="card-content">
+                    <img src="${imageSrc}" alt="${title}" id="${id}">
+                </div>
+                <div class="card-footer">
+                    <div class="stats">
+                        <span>Size: ${formatSize(size)}</span>
+                        <span>Saved: ${savingsPercent}%</span>
+                    </div>
+                    ${downloadable 
+                        ? `<a href="${imageSrc}" download="compressed_${id}.jpg" class="button">Download Image</a>`
+                        : ""}
+                </div>
+            `;
+            return card;
+        }
+
+        function compressImage(targetPercentage) {
+    return new Promise((resolve) => {
+        const img = new Image();
+        img.src = originalImage;
+        
+        img.onload = () => {
+            const canvas = document.createElement("canvas");
+            const ctx = canvas.getContext("2d");
+            canvas.width = img.width;
+            canvas.height = img.height;
+            ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+
+            const targetSize = originalSize * targetPercentage;
+            let low = 0.0;
+            let high = 1.0;
+            let mid = 0.5;
+            let bestQuality = null;
+            let bestBlob = null;
+            let attempts = 0;
+            const maxAttempts = 10;
+
+            const compress = () => {
+                canvas.toBlob((blob) => {
+                    attempts++;
+                    
+                    // Keep track of best result so far
+                    if (!bestBlob || Math.abs(blob.size - targetSize) < Math.abs(bestBlob.size - targetSize)) {
+                        bestQuality = mid;
+                        bestBlob = blob;
+                    }
+
+                    // If we're close enough or hit max attempts, return best result
+                    if (attempts >= maxAttempts || Math.abs(blob.size - targetSize) / targetSize < 0.05) {
+                        resolve({
+                            url: URL.createObjectURL(bestBlob),
+                            size: bestBlob.size
+                        });
+                        return;
+                    }
+
+                    // Binary search for quality
+                    if (blob.size > targetSize) {
+                        high = mid;
+                    } else {
+                        low = mid;
+                    }
+                    mid = (low + high) / 2;
+                    compress();
+                    
+                }, "image/jpeg", mid);
+            };
+
+            compress();
+        };
+    });
+}
+
+        function processImage(file) {
+            if (file.size < MIN_FILE_SIZE) {
+                showError(`Selected image is ${formatSize(file.size)}. Please select an image larger than ${formatSize(MIN_FILE_SIZE)} to ensure quality compression.`);
+                return;
+            }
+
+            originalSize = file.size;
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                originalImage = e.target.result;
+                previewContainer.innerHTML = "";
+                
+                // Show original image
+                const originalCard = createResultCard("Original Image", originalImage, originalSize, "original");
+                previewContainer.appendChild(originalCard);
+                
+                // Create loading cards and start compression
+                const percentages = [0.75, 0.5, 0.25];
+                percentages.forEach(percentage => {
+                    createLoadingCard(`${percentage * 100}% Compression`, `loading_${percentage * 100}`);
+                });
+                
+                const results = new Map();
+                
+                Promise.all(percentages.map(percentage => 
+                    compressImage(percentage).then(result => {
+                        results.set(percentage, result);
+                    })
+                )).then(() => {
+                    percentages.forEach(percentage => {
+                        const result = results.get(percentage);
+                        const loadingCard = document.getElementById(`loading_${percentage * 100}`);
+                        if (loadingCard) {
+                            const newCard = createResultCard(
+                                `${percentage * 100}% Compression`,
+                                result.url,
+                                result.size,
+                                `compressed_${percentage * 100}`,
+                                true
+                            );
+                            loadingCard.parentNode.replaceChild(newCard, loadingCard);
+                        }
+                    });
+                });
+            };
+            reader.readAsDataURL(file);
+        }
+
+        // Event Listeners
+        imageInput.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (file) {
+                processImage(file);
+            }
+        });
+
+        uploadBox.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadBox.classList.add('drag-over');
+        });
+
+        uploadBox.addEventListener('dragleave', (e) => {
+            e.preventDefault();
+            uploadBox.classList.remove('drag-over');
+        });
+
+        uploadBox.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadBox.classList.remove('drag-over');
+            const file = e.dataTransfer.files[0];
+            if (file && file.type.startsWith('image/')) {
+                processImage(file);
+            }
+        });
+
+        uploadBox.addEventListener('click', () => {
+            imageInput.click();
+        });
+    </script>
+</body>
+</html>
